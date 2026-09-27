@@ -1,0 +1,16 @@
+{
+  "testedModuleCommit": "7d2019d42d4d76ba138949088f9a4a28d86a98c8",
+  "stockCoreRevision": "baefaab94e954c9351127fabc17d30e3218ac911",
+  "stockCompileWorkflow": "https://github.com/CWO4PapaBear/mod-well-rested/actions/runs/36330945813",
+  "ptrImageBuild": "passed",
+  "ptrSourceRestorationErrors": [],
+  "sqlChecks": [
+    "Schema applies twice without data loss",
+    "Numeric upsert preserves independent character balances and fractional XP",
+    "InnoDB rollback and scoped deletion preserve the other character"
+  ],
+  "schemaSha256": "2a35d66c1551bffbcf80b1969a14ee53b1f046c82be9d9dc1e31405ebc5736d2",
+  "activation": "not-performed",
+  "gameplay": "not-tested",
+  "coaCompile": "pending"
+}

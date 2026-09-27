@@ -2,7 +2,7 @@
 
 Independent AzerothCore module: spend **15 continuous online minutes inside an inn** to earn **8% additional monster-kill XP for two hours of online play**. Earned time pauses while logged out.
 
-**Development preview. Disabled by default.** Timer/XP arithmetic tests pass. Isolated MySQL schema validation also passes. The server adapter still needs full core compilation and in-game testing. Not installed on Bear Cave PTR. Do not treat source publication as production readiness.
+**Development preview. Disabled by default.** Timer/XP arithmetic tests pass. Isolated MySQL schema validation also passes. Stock AzerothCore module compilation and the full Bear Cave PTR image build pass. CoA compilation, activation preflight and in-game testing remain. Not installed on Bear Cave PTR. Do not treat source publication as production readiness.
 
 ## Scope
 
