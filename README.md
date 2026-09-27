@@ -2,7 +2,7 @@
 
 Independent AzerothCore module: spend **15 continuous online minutes inside an inn** to earn **8% additional monster-kill XP for two hours of online play**. Earned time pauses while logged out.
 
-**Development preview. Disabled by default.** The chat-only version passed stock AzerothCore and CoA module compilation, a full Bear Cave PTR image build, and PTR activation. Gameplay acceptance is still pending. Native timed buff icons are now staged as an optional extension; their updated server build and client installation require separate validation.
+**Disabled by default.** The native-buff version passed stock AzerothCore and pinned CoA module compilation, a full Bear Cave PTR build, and activation. The owner reports the deployed system working as intended. [CoA PR #5426](https://github.com/jealous-sound/azerothcore-wotlk-coa/pull/5426) is a draft: current-main runtime, multiplayer load validation, and CoA client distribution remain outstanding. Local acceptance does not establish those additional checks.
 
 ## Scope
 
