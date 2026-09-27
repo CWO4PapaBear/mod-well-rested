@@ -3,6 +3,7 @@
 #include "Chat.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
+#include "DataMap.h"
 #include "Log.h"
 #include "Player.h"
 #include "ScriptMgr.h"
@@ -14,7 +15,7 @@ constexpr char StateKey[] = "mod-well-rested.state";
 WellRested::Policy policy;
 bool enabled = false; // Written on startup only, before players can log in.
 bool announce = true;
-struct PlayerState
+struct PlayerState : DataMap::Base
 {
     WellRested::State timer;
     uint32 saveMs = 0;

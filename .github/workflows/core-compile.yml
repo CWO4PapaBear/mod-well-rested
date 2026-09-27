@@ -1,0 +1,38 @@
+name: Core adapter compilation
+on: workflow_dispatch
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: azerothcore/azerothcore-wotlk
+            revision: baefaab94e954c9351127fabc17d30e3218ac911
+            label: stock
+          - repository: jealous-sound/azerothcore-wotlk-coa
+            revision: 47dd22ffe6d0a82e6886487f38acff7c5cfeb117
+            label: coa
+    name: Compile against ${{ matrix.label }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: module
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.revision }}
+          path: core
+      - name: Build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build libboost-all-dev libmysqlclient-dev libssl-dev zlib1g-dev libreadline-dev libbz2-dev
+      - name: Install module source in isolated checkout
+        run: |
+          test ! -e core/modules/mod-well-rested
+          cp -a module core/modules/mod-well-rested
+          rm -rf core/modules/mod-well-rested/.git
+      - name: Configure module compilation
+        run: cmake -S core -B build -G Ninja -DAPPS_BUILD=none -DTOOLS_BUILD=none -DSCRIPTS=none -DMODULES=static -DUSE_COREPCH=OFF -DUSE_SCRIPTPCH=OFF
+      - name: Compile modules against actual core headers
+        run: cmake --build build --target modules --parallel 2
