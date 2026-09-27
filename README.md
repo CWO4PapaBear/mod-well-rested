@@ -2,7 +2,7 @@
 
 Independent AzerothCore module: spend **15 continuous online minutes inside an inn** to earn **8% additional monster-kill XP for two hours of online play**. Earned time pauses while logged out.
 
-**Development preview. Disabled by default.** Timer/XP arithmetic tests pass. Isolated MySQL schema validation also passes. Stock AzerothCore module compilation and the full Bear Cave PTR image build pass. CoA compilation, activation preflight and in-game testing remain. Not installed on Bear Cave PTR. Do not treat source publication as production readiness.
+**Development preview. Disabled by default.** The chat-only version passed stock AzerothCore and CoA module compilation, a full Bear Cave PTR image build, and PTR activation. Gameplay acceptance is still pending. Native timed buff icons are now staged as an optional extension; their updated server build and client installation require separate validation.
 
 ## Scope
 
@@ -14,7 +14,7 @@ Independent AzerothCore module: spend **15 continuous online minutes inside an i
 - Monster-kill XP only. No quest, exploration, battleground or player-kill bonus.
 - Uses the standard kill-XP hook; other rate/rested systems retain their normal place in the core pipeline. Cross-module ordering/rounding must be tested on each target server.
 - All ordinary player classes are eligible; no Bear Cave play-style dependency. Mode-specific restrictions, if desired, belong in a separate integration layer.
-- Initial stock-client presentation is chat notifications. A buff icon/countdown is **not yet included**. Optional client presentation must not apply another XP aura and double the bonus.
+- Stock-client presentation remains chat notifications by default. Optional native **Resting** and **Well Rested** buff icons show both countdowns. The inn countdown automatically restarts after every completion and refreshes the earned reward. Display spells are dummy auras, never an additional XP multiplier.
 
 ## Installation after validation
 
@@ -28,7 +28,7 @@ Import `data/sql/db-characters/base/001_well_rested.sql` into the **characters**
 
 State is per character GUID. Only earned remaining time and fractional XP are persisted; unfinished rest is intentionally not persisted. Saves occur on earning/expiry, normal character save/logout, and at most once per minute while the bonus is active. A crash can restore up to the last successful save's remaining time (normally at most a minute); this is not an exactly-once reward ledger. Back up the characters database before testing. Missing schema/version prevents enabling the module.
 
-To disable, set `WellRested.Enable = 0` and restart. Retain the module tables for rollback. No world SQL or client files are needed for this preview.
+To disable, set `WellRested.Enable = 0` and restart. Retain the module tables for rollback. No world SQL or client files are needed for chat-only operation. Native buff icons require the optional matching spell data described below.
 
 ## Tests
 
@@ -46,3 +46,26 @@ python3 tests/schema_test.py --image mysql:8.4
 ```
 
 This test creates and removes only its randomly named test container. It does not connect to a live server database.
+
+## Optional native buff icons
+
+This extension requires matching WotLK `Spell.dbc` records on **both server and every client**. It does not require an addon, HeroFreePick, or Ascension assets. The generator supplies original dummy-aura records and text, using stock sleep/restorative icons by default. No proprietary DBC or artwork is included in this repository.
+
+First check that spell IDs **910100 and 910101** are unused in your effective server/client DBCs, world `spell_dbc`, script bindings, and any module ID registry. These are suggested IDs, not a globally reserved allocation. Configure different IDs if needed. The generator refuses an existing ID and writes only a new output file:
+
+```bash
+python3 tools/build_display_dbc.py /path/to/current/Spell.dbc /path/to/staged/Spell.dbc
+```
+
+Run against each current server/client input separately so unrelated rows and strings remain intact. Install the client result in your normal cumulative MPQ patch after backing it up, and the server result at its configured DBC path during maintenance. Use the current source data, never replace an entire current DBC with an older server/client copy. Confirm duration records 347 (900000 ms) and 367 (7200000 ms), and icon records 44 and 117, exist on your client. Artwork overrides are optional operator-managed data; `--rest-icon` and `--reward-icon` select installed icon IDs.
+
+Then configure and rebuild/restart the module:
+
+```ini
+WellRested.RestingSpell = 910100
+WellRested.RewardSpell = 910101
+```
+
+The server validates the two dummy-aura definitions before enabling. It marks these presentation auras as nonpersistent; only the module character table owns the earned clock. Login rebuilds the display from saved remaining time. Leaving the inn, combat, death or logout clears unfinished rest. The earned reward and its icon survive death; both continue counting while online. Timers synchronize on transitions and bounded periodic checks without sending a packet every world tick. Buffs cannot be right-click cancelled because removing a presentation icon must not discard or manufacture earned state.
+
+Keep the tooltip's bonus (`--bonus`, default 8) aligned with `WellRested.BonusPercent`. Runtime max/remaining durations come from module configuration. Setting both spell IDs to zero retains chat-only compatibility. On rollback, retain the module character table and the harmless client definitions; do not erase earned time. Validate inn departure, automatic repeated cycles, relog, death, combat, XP attribution and normal buff-frame/addon rendering in game before release.

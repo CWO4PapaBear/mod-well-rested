@@ -9,3 +9,5 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g tests/state_test.cpp -o /tmp/well-rested-test
           /tmp/well-rested-test
+      - name: Test display-only DBC generation
+        run: python3 tests/display_test.py

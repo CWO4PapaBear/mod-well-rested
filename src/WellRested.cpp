@@ -7,6 +7,9 @@
 #include "Log.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "SpellAuras.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include <algorithm>
 
 namespace
@@ -15,11 +18,58 @@ constexpr char StateKey[] = "mod-well-rested.state";
 WellRested::Policy policy;
 bool enabled = false; // Written on startup only, before players can log in.
 bool announce = true;
+uint32 restingSpell = 0;
+uint32 rewardSpell = 0;
+bool icons = false;
 struct PlayerState : DataMap::Base
 {
     WellRested::State timer;
     uint32 saveMs = 0;
+    uint32 iconSyncMs = 0;
 };
+// These are display-only auras. The timer and XP hook below remain authoritative.
+// Never use MOD_XP_PCT here: that would multiply the reward a second time.
+bool ValidDisplaySpell(uint32 id)
+{
+    auto const* info = sSpellMgr->GetSpellInfo(id);
+    if (!info || info->Effects[0].Effect != SPELL_EFFECT_APPLY_AURA ||
+        info->Effects[0].ApplyAuraName != SPELL_AURA_DUMMY ||
+        info->Effects[1].Effect || info->Effects[2].Effect ||
+        !info->HasAttribute(SPELL_ATTR0_NO_AURA_CANCEL) ||
+        !info->HasAttribute(SPELL_ATTR3_ALLOW_AURA_WHILE_DEAD) || info->IsPassive())
+        return false;
+    return true;
+}
+void ClearIcons(Player* player)
+{
+    if (!icons) return;
+    player->RemoveAurasDueToSpell(restingSpell);
+    player->RemoveAurasDueToSpell(rewardSpell);
+}
+void SyncIcon(Player* player, uint32 spell, uint32 remaining, uint32 maximum, bool force)
+{
+    if (!remaining)
+    {
+        player->RemoveAurasDueToSpell(spell);
+        return;
+    }
+    Aura* aura = player->GetAura(spell, player->GetGUID());
+    bool created = !aura;
+    if (!aura) aura = player->AddAura(spell, player);
+    if (!aura) return; // Retry on the next bounded presentation update.
+    int64 drift = int64(aura->GetDuration()) - remaining;
+    if (created || force || aura->GetMaxDuration() != int32(maximum) || drift > 1500 || drift < -1500)
+    {
+        aura->SetMaxDuration(int32(maximum));
+        aura->SetDuration(int32(remaining));
+    }
+}
+void SyncIcons(Player* player, PlayerState const& state, bool force)
+{
+    if (!icons) return;
+    SyncIcon(player, restingSpell, state.timer.wasInInn ? policy.restMs - state.timer.restMs : 0, policy.restMs, force);
+    SyncIcon(player, rewardSpell, state.timer.remainingMs, policy.rewardMs, force);
+}
 void Save(Player* player, PlayerState const& state)
 {
     // Synchronous ordering prevents an older asynchronous save from overwriting
@@ -53,6 +103,23 @@ public:
         }
         policy = {rest * 1000, reward * 1000, bonus};
         announce = sConfigMgr->GetOption<bool>("WellRested.Announce", true);
+        restingSpell = sConfigMgr->GetOption<uint32>("WellRested.RestingSpell", 0);
+        rewardSpell = sConfigMgr->GetOption<uint32>("WellRested.RewardSpell", 0);
+        if (restingSpell || rewardSpell)
+        {
+            if (!restingSpell || !rewardSpell || restingSpell == rewardSpell ||
+                !ValidDisplaySpell(restingSpell) || !ValidDisplaySpell(rewardSpell))
+            {
+                LOG_ERROR("module.well_rested", "Disabled: invalid display spell pair; install matching dummy-aura definitions and client data.");
+                return;
+            }
+            icons = true;
+            // Never let character_aura persistence run a second clock or retain
+            // unfinished rest. The module's character table owns earned time.
+            sSpellMgr->_GetSpellInfo(restingSpell)->AttributesCu |= SPELL_ATTR0_CU_AURA_CANNOT_BE_SAVED;
+            sSpellMgr->_GetSpellInfo(rewardSpell)->AttributesCu |= SPELL_ATTR0_CU_AURA_CANNOT_BE_SAVED;
+            LOG_INFO("module.well_rested", "Timed buff icons enabled: Resting {}, Well Rested {} (display only).", restingSpell, rewardSpell);
+        }
         enabled = true;
         LOG_INFO("module.well_rested", "Enabled: {} seconds in an inn grants {}% monster XP for {} online seconds.", rest, bonus, reward);
     }
@@ -64,6 +131,9 @@ public:
     void OnPlayerLogin(Player* player) override
     {
         if (!enabled) return;
+        // Discard any core-saved display durations. Our persisted timer controls
+        // the earned reward; unfinished inn progress always starts over on login.
+        ClearIcons(player);
         auto* state = player->CustomData.GetDefault<PlayerState>(StateKey);
         auto result = CharacterDatabase.Query(
             "SELECT remaining_ms,fraction FROM mod_well_rested_character WHERE guid={}", player->GetGUID().GetCounter());
@@ -82,7 +152,15 @@ public:
         if (!state) return;
         // CITY/FACTION_AREA alone do not qualify. Use the core's inn trigger flag.
         bool inn = player->IsAlive() && !player->IsInCombat() && player->HasRestFlag(REST_FLAG_IN_TAVERN);
+        bool wasInInn = state->timer.wasInInn;
         auto event = WellRested::Advance(state->timer, policy, elapsed, inn);
+        state->iconSyncMs = std::min<uint64>(uint64(state->iconSyncMs) + elapsed, 1000);
+        bool changed = wasInInn != state->timer.wasInInn || event.earned || event.expired;
+        if (changed || state->iconSyncMs >= 1000)
+        {
+            SyncIcons(player, *state, changed);
+            state->iconSyncMs = 0;
+        }
         if (announce && event.started)
             ChatHandler(player->GetSession()).PSendSysMessage("Resting: stay in this inn for {} minutes to earn Well Rested.", policy.restMs / 60000);
         if (announce && event.earned)
@@ -113,6 +191,7 @@ public:
         if (auto* state = player->CustomData.Get<PlayerState>(StateKey))
         {
             WellRested::Logout(state->timer);
+            ClearIcons(player);
             Save(player, *state);
         }
     }

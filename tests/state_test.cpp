@@ -27,6 +27,9 @@ int main()
     State refreshed; Advance(refreshed,p,0,true);
     Advance(refreshed,p,900000,true); Advance(refreshed,p,900000,true);
     CHECK(refreshed.remainingMs == 7200000); // refresh, never add duration
+    CHECK(refreshed.restMs == 0 && refreshed.wasInInn); // next 15-minute cycle started
+    Advance(refreshed,p,1000,true);
+    CHECK(refreshed.restMs == 1000 && refreshed.remainingMs == 7199000); // both clocks visible
     State longTick; Advance(longTick,p,0,true); Advance(longTick,p,900001,true);
     CHECK(longTick.remainingMs == 7199999 && longTick.restMs == 1);
     State tiny; tiny.remainingMs = 1000; unsigned total = 0;

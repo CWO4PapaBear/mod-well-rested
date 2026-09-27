@@ -4,3 +4,8 @@ WellRested.RestSeconds = 900
 WellRested.RewardSeconds = 7200
 WellRested.BonusPercent = 8
 WellRested.Announce = 1
+# Optional native buff icons. Zero keeps stock-client chat-only compatibility.
+# Install generated matching server/client Spell.dbc rows before setting these.
+# Suggested collision-checked IDs: 910100 (Resting), 910101 (Well Rested).
+WellRested.RestingSpell = 0
+WellRested.RewardSpell = 0
