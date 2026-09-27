@@ -33,6 +33,6 @@ jobs:
           cp -a module core/modules/mod-well-rested
           rm -rf core/modules/mod-well-rested/.git
       - name: Configure module compilation
-        run: cmake -S core -B build -G Ninja -DAPPS_BUILD=none -DTOOLS_BUILD=none -DSCRIPTS=none -DMODULES=static -DUSE_COREPCH=OFF -DUSE_SCRIPTPCH=OFF
+        run: cmake -S core -B build -G Ninja -DAPPS_BUILD=all -DTOOLS_BUILD=none -DSCRIPTS=none -DMODULES=static -DUSE_COREPCH=OFF -DUSE_SCRIPTPCH=OFF
       - name: Compile modules against actual core headers
         run: cmake --build build --target modules --parallel 2
