@@ -29,9 +29,8 @@ struct PlayerState : DataMap::Base
 };
 // These are display-only auras. The timer and XP hook below remain authoritative.
 // Never use MOD_XP_PCT here: that would multiply the reward a second time.
-bool ValidDisplaySpell(uint32 id)
+bool ValidDisplaySpell(SpellInfo const* info)
 {
-    auto const* info = sSpellMgr->GetSpellInfo(id);
     if (!info || info->Effects[0].Effect != SPELL_EFFECT_APPLY_AURA ||
         info->Effects[0].ApplyAuraName != SPELL_AURA_DUMMY ||
         info->Effects[1].Effect || info->Effects[2].Effect ||
@@ -40,6 +39,23 @@ bool ValidDisplaySpell(uint32 id)
         return false;
     return true;
 }
+class WellRestedSpellData final : public GlobalScript
+{
+    uint32 const restId;
+    uint32 const rewardId;
+public:
+    WellRestedSpellData() : GlobalScript("WellRestedSpellData"),
+        restId(sConfigMgr->GetOption<uint32>("WellRested.RestingSpell", 0)),
+        rewardId(sConfigMgr->GetOption<uint32>("WellRested.RewardSpell", 0)) { }
+    void OnLoadSpellCustomAttr(SpellInfo* info) override
+    {
+        // Public loader hook supplies mutable metadata before players log in.
+        // Only our configured, validated display spells must not be persisted.
+        if (restId && rewardId && restId != rewardId &&
+            (info->Id == restId || info->Id == rewardId) && ValidDisplaySpell(info))
+            info->AttributesCu |= SPELL_ATTR0_CU_AURA_CANNOT_BE_SAVED;
+    }
+};
 void ClearIcons(Player* player)
 {
     if (!icons) return;
@@ -108,16 +124,13 @@ public:
         if (restingSpell || rewardSpell)
         {
             if (!restingSpell || !rewardSpell || restingSpell == rewardSpell ||
-                !ValidDisplaySpell(restingSpell) || !ValidDisplaySpell(rewardSpell))
+                !ValidDisplaySpell(sSpellMgr->GetSpellInfo(restingSpell)) ||
+                !ValidDisplaySpell(sSpellMgr->GetSpellInfo(rewardSpell)))
             {
                 LOG_ERROR("module.well_rested", "Disabled: invalid display spell pair; install matching dummy-aura definitions and client data.");
                 return;
             }
             icons = true;
-            // Never let character_aura persistence run a second clock or retain
-            // unfinished rest. The module's character table owns earned time.
-            sSpellMgr->_GetSpellInfo(restingSpell)->AttributesCu |= SPELL_ATTR0_CU_AURA_CANNOT_BE_SAVED;
-            sSpellMgr->_GetSpellInfo(rewardSpell)->AttributesCu |= SPELL_ATTR0_CU_AURA_CANNOT_BE_SAVED;
             LOG_INFO("module.well_rested", "Timed buff icons enabled: Resting {}, Well Rested {} (display only).", restingSpell, rewardSpell);
         }
         enabled = true;
@@ -202,6 +215,7 @@ public:
 };
 void Addmod_well_restedScripts()
 {
+    new WellRestedSpellData();
     new WellRestedWorld();
     new WellRestedPlayer();
 }
