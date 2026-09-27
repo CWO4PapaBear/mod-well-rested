@@ -1,0 +1,11 @@
+name: Module checks
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  timer-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test independent state engine
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g tests/state_test.cpp -o /tmp/well-rested-test
+          /tmp/well-rested-test

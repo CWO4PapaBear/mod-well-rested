@@ -1,0 +1,6 @@
+# Restart required for configuration changes. Disabled until explicitly enabled.
+WellRested.Enable = 0
+WellRested.RestSeconds = 900
+WellRested.RewardSeconds = 7200
+WellRested.BonusPercent = 8
+WellRested.Announce = 1
