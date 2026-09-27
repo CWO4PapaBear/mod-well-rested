@@ -5,3 +5,4 @@ build/
 *.pdb
 *.conf
 __pycache__/
+isolated-sql-report.json

@@ -2,7 +2,7 @@
 
 Independent AzerothCore module: spend **15 continuous online minutes inside an inn** to earn **8% additional monster-kill XP for two hours of online play**. Earned time pauses while logged out.
 
-**Development preview. Disabled by default.** Timer/XP arithmetic tests pass. The server adapter still needs full core compilation, isolated SQL validation, and in-game testing. Not installed on Bear Cave PTR. Do not treat source publication as production readiness.
+**Development preview. Disabled by default.** Timer/XP arithmetic tests pass. Isolated MySQL schema validation also passes. The server adapter still needs full core compilation and in-game testing. Not installed on Bear Cave PTR. Do not treat source publication as production readiness.
 
 ## Scope
 
@@ -38,3 +38,11 @@ g++ -std=c++17 -Wall -Wextra -Werror tests/state_test.cpp -o /tmp/well-rested-te
 ```
 
 See [upstream plan](docs/UPSTREAM.md), [provenance](docs/PROVENANCE.md), and [acceptance checklist](docs/ACCEPTANCE.md). Licensed GPL-2.0-or-later; original implementation, no proprietary client resources included.
+
+Run the synthetic schema checks in a disposable, network-isolated Docker container (use an already available MySQL image):
+
+```bash
+python3 tests/schema_test.py --image mysql:8.4
+```
+
+This test creates and removes only its randomly named test container. It does not connect to a live server database.
